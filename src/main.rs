@@ -99,7 +99,7 @@ fn decompose_graveyard(options: DecomposeOpts) -> Result<()> {
     // TODO: if inspect, give stats about graveyard
     if prompt_yes("Really unlink the entire graveyard?") {
         if verbose {
-            let stdout = io::stdout();
+            let stdout = anstream::stdout();
             let std_lock = stdout.lock();
             let handle = io::BufWriter::new(std_lock);
             let mut tab_handle = tabwriter::TabWriter::new(handle);

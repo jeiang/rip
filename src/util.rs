@@ -2,7 +2,7 @@ use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::{env, fs, io};
 
-use anstream::println;
+use anstream::{print, println};
 use owo_colors::OwoColorize;
 
 /// Concatenate two paths, even if the right argument is an absolute path.
@@ -38,7 +38,7 @@ pub(crate) fn prompt_yes<T: AsRef<str>>(prompt: T) -> bool {
         "y".green().bold(),
         "N".red().bold()
     );
-    if io::stdout().flush().is_err() {
+    if anstream::stdout().flush().is_err() {
         // If stdout wasn't flushed properly, fallback to println
         println!(
             "{} [{}/{}]",
