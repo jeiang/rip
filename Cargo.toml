@@ -16,7 +16,6 @@ autobins = false
 
 [dependencies]
 walkdir = "2"
-colored = "2" # TODO: remove
 chrono = "0.4"
 eyre = "0.6"
 glob = "0.3.0"

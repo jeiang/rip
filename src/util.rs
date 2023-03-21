@@ -2,7 +2,8 @@ use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::{env, fs, io};
 
-use colored::Colorize;
+use anstream::println;
+use owo_colors::OwoColorize;
 
 /// Concatenate two paths, even if the right argument is an absolute path.
 pub(crate) fn join_absolute<A: AsRef<Path>, B: AsRef<Path>>(left: A, right: B) -> PathBuf {

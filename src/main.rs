@@ -19,9 +19,9 @@ use chrono::DateTime;
 use clap::CommandFactory;
 use clap_complete_command::Shell;
 use cli::{BuryOpts, DecomposeOpts, RipCli, RipOptions, SeanceOpts, UnburyOpts};
-use colored::Colorize;
 use eyre::{bail, eyre, Result, WrapErr};
 use globwalk::{GlobWalker, GlobWalkerBuilder};
+use owo_colors::OwoColorize;
 use util::{
     humanize_bytes, join_absolute, parent_file_exists, prompt_yes, rename_grave, symlink_exists,
 };
@@ -324,9 +324,9 @@ fn seance_command(options: SeanceOpts) -> Result<()> {
             let shortened = grave
                 .display()
                 .to_string()
-                .replace(graveyard.to_str().unwrap(), "")
-                .yellow()
-                .bold();
+                .replace(graveyard.to_str().unwrap(), "");
+            let shortened = shortened.yellow();
+            let shortened = shortened.bold();
 
             if plain {
                 println!("{shortened}");
