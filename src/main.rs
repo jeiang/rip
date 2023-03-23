@@ -27,32 +27,18 @@ use util::{
 };
 use walkdir::WalkDir;
 
-// TODO: cleanup logging
-macro_rules! fmt_exp {
-    ($a:expr,$b:ident) => {
-        $a.display().to_string().$b().bold()
-    };
-}
-
-// These are somewhat treated as log::debug, etc
-macro_rules! verbose {
-    ($e:expr,$v:expr) => {
-        println!(
-            "{}: {}",
-            $e.to_string().to_uppercase().green().bold(),
-            $v.to_string().yellow()
-        )
-    };
-}
-
-macro_rules! verbosed {
-    ($e:expr,$v:expr) => {
-        println!(
-            "{}: {:#?}",
-            $e.to_string().to_uppercase().green().bold(),
-            $v
-        )
-    };
+macro_rules! log {
+    ($verbose:expr, $output:expr) => {{
+        if $verbose {
+            ::anstream::println!("{label}, {output}", label = "VERBOSE".yellow().bold(), output = $output);
+        }
+    }};
+    ($verbose:expr, $output:expr, $( $args:expr ),+) => {{
+        if $verbose {
+            let out = format!($output, $( $args ),+);
+            ::anstream::println!("{label}: {out}", label = "VERBOSE".yellow().bold());
+        }
+    }};
 }
 
 /// Default graveyard location assuming that no other is assumed/specified
@@ -125,7 +111,7 @@ fn decompose_graveyard(options: DecomposeOpts) -> Result<()> {
                 writeln!(
                     tab_handle,
                     "{}\t{}",
-                    fmt_exp!(entry.orig, cyan),
+                    entry.orig.display().to_string().cyan().bold(),
                     file_type(&join_absolute(&graveyard, PathBuf::from(entry.orig),))
                         .bright_red()
                         .bold(),
@@ -133,9 +119,16 @@ fn decompose_graveyard(options: DecomposeOpts) -> Result<()> {
             }
             tab_handle.flush()?;
         }
-        fs::remove_dir_all(graveyard).wrap_err("Couldn't unlink graveyard")?;
+        fs::remove_dir_all(&graveyard).wrap_err(eyre!(
+            "Failed to remove graveyard at: {}",
+            graveyard.display()
+        ))
+    } else {
+        if verbose {
+            // TODO: log not deleteing
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 // TODO: FIX THIS
@@ -180,11 +173,12 @@ fn unbury(options: UnburyOpts) -> Result<()> {
         }
     }
 
-    let mut graves_to_exhume = dbg!(graves_to_exhume);
+    log!(
+        verbose,
+        "Resolved graves to exhume from CLI: {:?}",
+        graves_to_exhume
+    );
 
-    if verbose {
-        verbosed!("exhumed cli matches", graves_to_exhume);
-    }
     // If -s is also passed, push all files found by seance onto
     // the graves_to_exhume.
     if seance_opt {
@@ -196,9 +190,7 @@ fn unbury(options: UnburyOpts) -> Result<()> {
                 graves_to_exhume.push(grave);
             }
         }
-        if verbose {
-            verbosed!("exhumed after seance", graves_to_exhume);
-        }
+        log!(verbose, "Exhumed after seance: {:?}", graves_to_exhume);
     }
 
     // Otherwise, add the last deleted file, globally or locally
@@ -206,31 +198,27 @@ fn unbury(options: UnburyOpts) -> Result<()> {
         let new_cwd = env::current_dir().wrap_err("Failed to get current dir")?;
         if local {
             if let Ok(s) = get_last_bury(&record, &new_cwd, "local") {
-                if verbose {
-                    verbose!("exhuming", "locally");
-                }
+                log!(verbose, "Matching graves to exhume from cwd locally.");
                 graves_to_exhume.push(s);
             }
         } else {
-            if verbose {
-                verbose!("exhuming", "globally");
-            }
+            log!(verbose, "Matching graves to exhume from cwd globally.");
             if let Ok(s) = get_last_bury(&record, &new_cwd, "global") {
                 graves_to_exhume.push(s);
             }
         }
-        if verbose {
-            verbosed!("exhumed last bury", graves_to_exhume);
-        }
-    }
 
-    let graves_to_exhume = dbg!(graves_to_exhume);
+        log!(
+            verbose,
+            "Matched graves in current dir: {:?}",
+            graves_to_exhume
+        );
+    }
 
     // Go through the graveyard and exhume all the graves
     let f = fs::File::open(&record).wrap_err("Couldn't read the record")?;
     for line in lines_of_graves(f, &graves_to_exhume) {
-        let line = dbg!(line);
-        let entry: RecordItem = record_entry(&line);
+        let entry = record_entry(&line);
         let orig: &Path = &{
             if symlink_exists(entry.orig) {
                 rename_grave(entry.orig)
@@ -242,8 +230,8 @@ fn unbury(options: UnburyOpts) -> Result<()> {
         bury(entry.dest, orig).wrap_err_with(|| {
             format!(
                 "Unbury failed: couldn't copy files from {} to {}",
-                fmt_exp!(entry.dest, magenta),
-                fmt_exp!(orig, red)
+                entry.dest.display().magenta().bold(),
+                orig.display().red().bold()
             )
         })?;
 
@@ -258,17 +246,17 @@ fn unbury(options: UnburyOpts) -> Result<()> {
                     .replace(graveyard.to_str().unwrap(), "$GRAVEYARD")
                     .magenta()
                     .bold(),
-                fmt_exp!(orig, red)
+                orig.display().red().bold()
             );
         } else {
-            println!("Returned {}", fmt_exp!(orig, red));
+            println!("Returned {}", orig.display().red().bold());
         }
     }
 
     // Reopen the record and then delete lines corresponding to exhumed graves
     fs::File::open(&record)
         .and_then(|f| delete_lines_from_record(f, &record, &graves_to_exhume))
-        .wrap_err(eyre!("Failed to remove unburied files from record."))
+        .wrap_err("Failed to remove unburied files from record.")
 }
 
 fn seance_command(options: SeanceOpts) -> Result<()> {
@@ -309,7 +297,7 @@ fn seance_command(options: SeanceOpts) -> Result<()> {
 
         if full_path {
             if plain {
-                println!("{}", fmt_exp!(grave, yellow));
+                println!("{}", grave.display().yellow().bold());
             } else {
                 writeln!(
                     tab_handle,
@@ -317,7 +305,7 @@ fn seance_command(options: SeanceOpts) -> Result<()> {
                     i.to_string().green().bold(),
                     created.magenta().bold(),
                     otype.bright_red().bold(),
-                    fmt_exp!(grave, yellow)
+                    grave.display().yellow().bold()
                 )?;
             }
         } else {
@@ -368,9 +356,7 @@ fn bury_command(options: BuryOpts) -> Result<()> {
                     .wrap_err("Failed to canonicalize path")?
             };
 
-            if verbose {
-                verbosed!("Resolved Target Path", source);
-            }
+            log!(verbose, "Resolved Target Path: {:?}", source);
 
             if inspect {
                 if metadata.is_dir() {
@@ -419,7 +405,7 @@ fn bury_command(options: BuryOpts) -> Result<()> {
                         println!(
                             "{}: problem reading {}",
                             "Error".red().bold(),
-                            fmt_exp!(source, magenta)
+                            source.display().magenta().bold()
                         );
                     }
                 }
@@ -439,7 +425,7 @@ fn bury_command(options: BuryOpts) -> Result<()> {
                     source.display().to_string().magenta().bold()
                 );
                 if !prompt_yes("Permanently unlink it?") {
-                    println!("Skipping {}", fmt_exp!(source, magenta));
+                    println!("Skipping {}", source.display().magenta());
                     return Ok(());
                 }
 
@@ -542,8 +528,6 @@ fn bury<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> Result<()> {
         .wrap_err("Couldn't get metadata")?
         .is_dir()
     {
-        // for x in globwalk::glob() {
-        // }
         // Walk the source, creating directories and copying files as needed
         for entry in WalkDir::new(source)
             .into_iter()
@@ -633,6 +617,7 @@ fn copy_file<S: AsRef<Path>, D: AsRef<Path>>(source: S, dest: D) -> io::Result<(
     Ok(())
 }
 
+// TODO: make this take an enum arg
 /// Return the path in the graveyard of the last file to be buried.
 /// As a side effect, any valid last files that are found in the record but
 /// not on the filesystem are removed from the record.
@@ -657,7 +642,6 @@ where
                 }
                 return Ok(PathBuf::from(entry.dest));
             }
-
             // File is gone, mark the grave to be removed from the record
             graves_to_exhume.push(PathBuf::from(entry.dest));
         } else if cwdp == "global" {
