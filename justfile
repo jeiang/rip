@@ -1,4 +1,3 @@
-CI := if env_var_or_default("CI", "1") == "0" { "--color=never" } else { "--color=always" }
 version := `rg --color=never --pcre2 -oI '^version = "\K(\d+\.?)+'`
 bt := '0'
 export RUST_BACKTRACE := bt
@@ -16,42 +15,30 @@ edit:
 alias r := run
 
 run *ARGS:
-    cargo run {{ CI }} -- {{ ARGS }}
+    cargo run -- {{ ARGS }}
 
 fmt:
-    cargo fmt -- --check --files-with-diff {{ CI }}
+    cargo fmt -- --check --files-with-diff
 
 audit:
-    cargo audit --deny warnings {{ CI }}
+    cargo audit --deny warnings
 
 check:
-    cargo check --all-features {{ CI }}
+    cargo check --all-features
 
 clippy:
-    cargo clippy --all --all-targets --all-features {{ CI }}
+    cargo clippy --all --all-targets --all-features
 
 alias br := build-release
 
 build-release:
-    cargo build --release --all-features {{ CI }}
+    cargo build --release --all-features
 
 test:
-    cargo test {{ CI }}
+    cargo test
 
 watch *ARGS:
     bacon clippy -- {{ ARGS }}
-
-### TODO: integrate this into the flake
-# man:
-#   help2man \
-#     --name 'tag files colorfully' \
-#     --manual 'Wutag Manual' \
-#     --no-info \
-#     target/debug/wutag \
-#     > man/wutag.1
-#   sed -i "s,\x1B\[[0-9;]*[a-zA-Z],,g" man/wutag.1
-# view-man: man
-#   man man/wutag.1
 
 replace-i FROM TO:
     -fd -tf -e rs -e toml | sad '{{ FROM }}' '{{ TO }}'
